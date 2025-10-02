@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -11,7 +11,7 @@ EAPI=8
 
 PYTHON_COMPAT=( python3_{11..13} )
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/coreutils.asc
-inherit flag-o-matic python-any-r1 toolchain-funcs verify-sig
+inherit branding flag-o-matic python-any-r1 toolchain-funcs verify-sig
 
 MY_PATCH="${PN}-9.6-patches"
 DESCRIPTION="Standard GNU utilities (chmod, cp, dd, ls, sort, tr, head, wc, who,...)"
@@ -33,7 +33,7 @@ else
 		verify-sig? ( mirror://gnu/${PN}/${P}.tar.xz.sig )
 	"
 
-	KEYWORDS="~alpha amd64 arm arm64 ~hppa ~loong ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
+	KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
 fi
 
 SRC_URI+=" !vanilla? ( https://dev.gentoo.org/~sam/distfiles/${CATEGORY}/${PN}/${MY_PATCH}.tar.xz )"
@@ -83,7 +83,11 @@ RDEPEND+="
 	!sys-apps/mktemp
 	!<app-forensics/tct-1.18-r1
 	!<net-fs/netatalk-2.0.3-r4
-	!app-alternatives/coreutils
+	!<sys-apps/shadow-4.19.0_rc1
+"
+
+PDEPEND="
+	app-alternatives/coreutils
 "
 
 QA_CONFIG_IMPL_DECL_SKIP=(
@@ -116,10 +120,8 @@ src_unpack() {
 src_prepare() {
 	# TODO: past 2025, we may need to add our own hack for bug #907474.
 	local PATCHES=(
+		"${FILESDIR}"/${PN}-9.5-skip-readutmp-test.patch
 		# Upstream patches
-		"${FILESDIR}"/${PN}-9.8-no-pclmul.patch
-		"${FILESDIR}"/${P}-tail-offset.patch
-		"${FILESDIR}"/${P}-basenc-base58.patch
 	)
 
 	if ! use vanilla && [[ -d "${WORKDIR}"/${MY_PATCH} ]] ; then
@@ -157,14 +159,12 @@ src_configure() {
 	# still experimental at the moment, but:
 	# https://git.savannah.gnu.org/cgit/coreutils.git/commit/?id=85edb4afbd119fb69a0d53e1beb71f46c9525dd0
 	local myconf=(
-		--with-packager="Gentoo"
 		--with-packager-version="${PVR} (p${PATCH_VER:-0})"
-		--with-packager-bug-reports="https://bugs.gentoo.org/"
 		# kill/uptime - procps
-		# groups/su   - shadow
 		# hostname    - net-tools
 		--enable-install-program="arch,$(usev hostname),$(usev kill)"
-		--enable-no-install-program="groups,$(usev !hostname),$(usev !kill),su,uptime"
+		--enable-no-install-program="$(usev !hostname),$(usev !kill),su,uptime"
+		--program-prefix=g
 		$(usev !caps --disable-libcap)
 		$(use_enable nls)
 		$(use_enable acl)
@@ -172,6 +172,7 @@ src_configure() {
 		$(use_enable xattr)
 		$(use_with gmp libgmp)
 		$(use_with openssl)
+		$(use_with selinux)
 	)
 
 	if use gmp ; then
@@ -192,11 +193,6 @@ src_configure() {
 		append-ldflags -static
 		# bug #321821
 		sed -i '/elf_sys=yes/s:yes:no:' configure || die
-	fi
-
-	if ! use selinux ; then
-		# bug #301782
-		export ac_cv_{header_selinux_{context,flash,selinux}_h,search_setfilecon}=no
 	fi
 
 	econf "${myconf[@]}"
@@ -279,7 +275,7 @@ src_install() {
 
 		# Move critical binaries into /bin (required by FHS)
 		local fhs="cat chgrp chmod chown cp date dd df echo false ln ls
-		           mkdir mknod mv pwd rm rmdir stty sync true uname"
+				   mkdir mknod mv pwd rm rmdir stty sync true uname"
 		mv ${fhs} ../../bin/ || die "Could not move FHS bins!"
 
 		if use hostname ; then
@@ -293,7 +289,7 @@ src_install() {
 		# Move critical binaries into /bin (common scripts)
 		# (Why are these required for booting?)
 		local com="basename chroot cut dir dirname du env expr head mkfifo
-		           mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
+				   mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
 		mv ${com} ../../bin/ || die "Could not move common bins!"
 
 		# Create a symlink for uname in /usr/bin/ since autotools require it.
@@ -308,6 +304,15 @@ src_install() {
 }
 
 pkg_postinst() {
+	if [[ ! -h /usr/bin/ls ]]; then
+		ewarn "sys-apps/coreutils has been updated to a version that installs g-prefixed names"
+		ewarn "  and relies on app-alternatives/coreutils to symlinks the unprefixed names."
+		ewarn "If the rest of the merge fails and you are missing important sysmlinks, you can run"
+		ewarn "  \$REPO_ROOT/app-alternatives/coreutils/files/fix_symlinks.sh to manually restore"
+		ewarn "  them, and then either install app-alternatives/coreutils or revert to the previosu"
+		ewarn "  sys-apps/coreutils."
+		ewarn "Visit https://bugs.gentoo.org/961068 for more info"
+	fi
 	ewarn "Make sure you run 'hash -r' in your active shells."
 	ewarn "You should also re-source your shell settings for LS_COLORS"
 	ewarn "  changes, such as: source /etc/profile"

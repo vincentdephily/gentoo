@@ -138,6 +138,10 @@ PYTHON_SINGLE_TARGET="python3_13"
 COLLISION_IGNORE="/boot/dtbs/* /lib/modules/*"
 UNINSTALL_IGNORE="/boot/dtbs/* /lib/modules/* /var/run /var/lock"
 
+# Vincent de Phily <vincent.dephily@gmail.com> (2026-02-17)
+# Minimal set of coreutils to not break system during migration to app-alternative: bug 961068
+UNINSTALL_IGNORE="${UNINSTALL_IGNORE} /usr/bin/basename /usr/bin/cat /usr/bin/chgrp /usr/bin/chmod /usr/bin/chown /usr/bin/cp /usr/bin/env /usr/bin/head /usr/bin/install /usr/bin/ln /usr/bin/mkdir /usr/bin/mkfifo /usr/bin/mktemp /usr/bin/pwd /usr/bin/readlink /usr/bin/rm /usr/bin/sort /usr/bin/stat /usr/bin/tail /usr/bin/uname"
+
 # Andreas K. Hüttel <dilfridge@gentoo.org> (2013-08-23)
 # Make emerge messages default to English as per Council decision
 LC_MESSAGES="C"

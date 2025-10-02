@@ -1,0 +1,59 @@
+--- a/install-xattr.c
++++ b/install-xattr.c
+@@ -190,32 +190,36 @@ which(char *mypath, char *portage_helper_path)
+ 		path = xstrdup(env_path);
+ 
+ 	char *dir;       /* one directory in the colon delimited $PATH string */
+-	char *canpath;   /* candidate install's canonical path                */
+ 	char *savedptr;  /* reentrant context for strtok_r()                  */
+ 
+ 	dir = strtok_r(path, ":", &savedptr);
+ 
+ 	while (dir) {
+-		char *canfile = path_join(dir, "install");
+-		canpath = realpath(canfile, NULL);
+-		free(canfile);
++		/* Since install might point to a multicall binary, and since the name
++		 * of the calling symlink would be lost if dereferenced, we only
++		 * dereference install's directory.
++		 */
++		char *candir = realpath(dir, NULL);
+ 
+ 		/* ignore invalid paths that cannot be canonicalized */
+-		if (!canpath)
+-			goto skip;
++		if (!candir)
++			goto skip2;
++
++		char *canpath = path_join(candir, "install");
++		free(candir);
+ 
+ 		/* If argv[0]'s canonical path == candidate install's canonical path,
+ 		 * then we skip this path otheriwise we get into an infinite self-invocation.
+ 		 */
+ 		if (!strcmp(mypath, canpath))
+-			goto skip;
++			goto skip1;
+ 
+ 		/* If portage install's canonical path == candidate install's canonical path,
+ 		 * then we skip this path otheriwise we get into an infinite self-invocation.
+ 		 */
+ 		if (portage_helper_path)
+ 			if (!strcmp(portage_helper_path, canpath))
+-				goto skip;
++				goto skip1;
+ 
+ 		/* If the canpath exists and is either a regular file or sym link,
+ 		 * assume we found the system's install.
+@@ -224,9 +228,10 @@ which(char *mypath, char *portage_helper_path)
+ 				return canpath;
+ 			}
+ 
+ 
+- skip:
++ skip1:
+ 		free(canpath);
++ skip2:
+ 		dir = strtok_r(NULL, ":", &savedptr);
+ 	}
+ 

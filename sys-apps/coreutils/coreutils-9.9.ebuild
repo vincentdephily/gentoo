@@ -83,6 +83,7 @@ RDEPEND+="
 	!sys-apps/mktemp
 	!<app-forensics/tct-1.18-r1
 	!<net-fs/netatalk-2.0.3-r4
+	!app-alternatives/coreutils
 "
 
 QA_CONFIG_IMPL_DECL_SKIP=(
