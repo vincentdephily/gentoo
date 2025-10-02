@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="project">
+		<email>base-system@gentoo.org</email>
+		<name>Gentoo Base System</name>
+	</maintainer>
+	<use>
+		<flag name="kill">
+			Link to the kill program.
+		</flag>
+		<flag name="hostname">
+			Link to the hostname program.
+		</flag>
+		<flag name="multicall">
+			Link to the multicall binary.
+		</flag>
+		<flag name="gnu">
+			Symlink to <pkg>sys-apps/coreutils</pkg> binaries.
+		</flag>
+		<flag name="uutils">
+			Symlink to <pkg>sys-apps/uutils-coreutils</pkg> binaries.
+		</flag>
+	</use>
+</pkgmetadata>
