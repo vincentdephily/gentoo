@@ -83,7 +83,10 @@ RDEPEND+="
 	!sys-apps/mktemp
 	!<app-forensics/tct-1.18-r1
 	!<net-fs/netatalk-2.0.3-r4
-	!app-alternatives/coreutils
+"
+
+PDEPEND="
+	app-alternatives/coreutils
 "
 
 QA_CONFIG_IMPL_DECL_SKIP=(
@@ -118,6 +121,8 @@ src_prepare() {
 	local PATCHES=(
 		# Upstream patches
 		"${FILESDIR}"/${PN}-9.8-no-pclmul.patch
+		"${FILESDIR}"/${P}-tail-offset.patch
+		"${FILESDIR}"/${P}-basenc-base58.patch
 	)
 
 	if ! use vanilla && [[ -d "${WORKDIR}"/${MY_PATCH} ]] ; then
@@ -163,6 +168,7 @@ src_configure() {
 		# hostname    - net-tools
 		--enable-install-program="arch,$(usev hostname),$(usev kill)"
 		--enable-no-install-program="groups,$(usev !hostname),$(usev !kill),su,uptime"
+		--program-prefix=g
 		$(usev !caps --disable-libcap)
 		$(use_enable nls)
 		$(use_enable acl)
@@ -271,13 +277,32 @@ src_install() {
 	insinto /etc
 	newins src/dircolors.hin DIR_COLORS
 
+	## Make sure the system remains usable until app-alternatives/coreutils installs owned symlinks
+	#TOOLS="[ arch b2sum base32 base64 basename basenc cat chcon chgrp
+	#	   chmod chown chroot cksum comm cp csplit cut date dd df dir
+	#	   dircolors dirname du echo env expand expr factor false fmt
+	#	   fold head hostid id install join link ln logname ls md5sum
+	#	   mkdir mkfifo mknod mktemp mv nice nl nohup nproc numfmt od
+	#	   paste pathchk pinky pr printenv printf ptx pwd readlink
+	#	   realpath rm rmdir runcon seq sha1sum sha224sum sha256sum
+	#	   sha384sum sha512sum shred shuf sleep sort split stat stdbuf
+	#	   stty sum sync tac tail tee test timeout touch tr true
+	#	   truncate tsort tty uname unexpand uniq unlink users vdir wc
+	#	   who whoami yes"
+	#for t in $TOOLS; do
+	#	if [[ -f ${EROOT}/usr/bin/${t} ]] && [[ ! -h ${EROOT}/usr/bin/${t} ]]; then
+	#		einfo "Installing owned symlink to g${t}"
+	#		dosym $(usex multicall gcoreutils g$t) "/usr/bin/${t}"
+	#	fi
+	#done
+
 	if use split-usr ; then
 		cd "${ED}"/usr/bin || die
 		dodir /bin
 
 		# Move critical binaries into /bin (required by FHS)
 		local fhs="cat chgrp chmod chown cp date dd df echo false ln ls
-		           mkdir mknod mv pwd rm rmdir stty sync true uname"
+				   mkdir mknod mv pwd rm rmdir stty sync true uname"
 		mv ${fhs} ../../bin/ || die "Could not move FHS bins!"
 
 		if use hostname ; then
@@ -291,7 +316,7 @@ src_install() {
 		# Move critical binaries into /bin (common scripts)
 		# (Why are these required for booting?)
 		local com="basename chroot cut dir dirname du env expr head mkfifo
-		           mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
+				   mktemp readlink seq sleep sort tail touch tr tty vdir wc yes"
 		mv ${com} ../../bin/ || die "Could not move common bins!"
 
 		# Create a symlink for uname in /usr/bin/ since autotools require it.
@@ -303,10 +328,49 @@ src_install() {
 			dosym ../../bin/${x} /usr/bin/${x}
 		done
 	fi
+
+	if [[ ! -h /usr/bin/env ]]; then
+		ewarn "/!\\ MANUAL INTERVENTION NEEDED /!\\"
+		ewarn "It looks like you've just upgraded to a version of sys-apps/coreutils that depends"
+		ewarn "on app-alternatives/coreutils to install the symlinks. Due to the way portage works,"
+		ewarn "it cannot provide an automatic transition, an any command that relies on coreutils"
+		ewarn "(including emerge) is likely failing now. To fix this, run"
+		ewarn "    bash \$REPO_ROOT/app-alternatives/coreutils/files/fix_symlinks.sh"
+		ewarn "You should then be able to continue your emerge command."
+		ewarn "See https://bugs.gentoo.org/961068 for more info"
+	fi
 }
 
 pkg_postinst() {
+	## Make sure the system remains usable until app-alternatives/coreutils installs owned symlinks
+	#TOOLS="[ arch b2sum base32 base64 basename basenc cat chcon chgrp
+	#	   chmod chown chroot cksum comm cp csplit cut date dd df dir
+	#	   dircolors dirname du echo env expand expr factor false fmt
+	#	   fold head hostid id install join link ln logname ls md5sum
+	#	   mkdir mkfifo mknod mktemp mv nice nl nohup nproc numfmt od
+	#	   paste pathchk pinky pr printenv printf ptx pwd readlink
+	#	   realpath rm rmdir runcon seq sha1sum sha224sum sha256sum
+	#	   sha384sum sha512sum shred shuf sleep sort split stat stdbuf
+	#	   stty sum sync tac tail tee test timeout touch tr true
+	#	   truncate tsort tty uname unexpand uniq unlink users vdir wc
+	#	   who whoami yes"
+	#for t in $TOOLS; do
+	#	ls -ld /usr/bin/{g,uu-,}${t}
+	#	if [[ ! -h ${EROOT}/usr/bin/${t} ]]; then
+	#		einfo "Restoring symlink to g${t}"
+	#		if [ -f "${EROOT}/usr/bin/ln" ]; then
+	#			ln -s "g${t}" "${EROOT}/usr/bin/${t}" || die
+	#		else
+	#			gln -s "g${t}" "${EROOT}/usr/bin/${t}" || die
+	#		fi
+	#	fi
+	#done
+
 	ewarn "Make sure you run 'hash -r' in your active shells."
 	ewarn "You should also re-source your shell settings for LS_COLORS"
 	ewarn "  changes, such as: source /etc/profile"
 }
+
+#pkg_postrm() {
+#	pkg_postinst
+#}
